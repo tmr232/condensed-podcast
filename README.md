@@ -113,10 +113,17 @@ Cover changes appear on the next scan; AntennaPod may need a feed refresh to sho
 
 ```powershell
 uv sync --locked
+gh extension install github/gh-actions-lock --pin v0.5.1
+uv run prek install
+uv run prek run --all-files
 uv run pytest
-uv run ruff check .
-uv run ruff format --check .
 ```
 
-Integration tests need FFmpeg/ffprobe or skip. Native Windows shutdown and real
-AntennaPod/Tailscale acceptance still need checking on the target machine.
+Requires [GitHub CLI](https://cli.github.com/). Hooks check Ruff lint/format,
+ty types (source and tests, both platforms), YAML/TOML, Python lock freshness,
+zizmor security audits and action-lock coverage.
+After changing action versions, run `gh actions-lock` and commit `actions.lock`.
+CI also verifies lockfile provenance online, builds the package and tests on
+Ubuntu and Windows with FFmpeg/ffprobe (including real conversions and Windows
+process cleanup). Locally, media integration tests skip if FFmpeg is missing.
+Real AntennaPod/Tailscale acceptance still needs checking on the target machine.

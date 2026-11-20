@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 from textwrap import dedent
+from typing import Any, cast
 
 import pytest
 
@@ -100,4 +101,5 @@ def test_windows_session_cleans_orphaned_descendants(tmp_path, kill_launcher):
         for handle in processes:
             if win32event.WaitForSingleObject(handle, 0) == win32event.WAIT_TIMEOUT:
                 win32process.TerminateProcess(handle, 1)
-            handle.Close()
+            # pywin32 stubs type OpenProcess's PyHANDLE as int.
+            cast(Any, handle).Close()

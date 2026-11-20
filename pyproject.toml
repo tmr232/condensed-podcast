@@ -15,7 +15,14 @@ dependencies = [
 condensed-podcast = "condensed_podcast.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+dev = [
+    "prek>=0.5.11,<1",
+    "pytest>=8,<10",
+    "ruff>=0.11,<1",
+    "ty>=0.0.107",
+    "types-pywin32>=312.0.0.20261104",
+    "zizmor>=1.32,<2",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -29,6 +36,9 @@ target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ty.environment]
+python-platform = "all"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -188,8 +188,6 @@ class Library:
         episode_id = str(uuid.uuid5(uuid.NAMESPACE_URL, key))
         if row is None:
             birth = getattr(stat, "st_birthtime", None)
-            if birth is None and os.name == "nt":
-                birth = stat.st_ctime
             self.db.execute(
                 """INSERT INTO episodes
                 (id,source,title,fingerprint,published_at)

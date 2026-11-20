@@ -95,11 +95,11 @@ def test_real_shuku_publish_and_skip_bad_input(
     assert bounds[0] < row["duration"] < bounds[1], log
     assert row["media_name"].endswith(extension)
     item = ET.parse(config.public_dir / "feed.xml").find("./channel/item")
+    assert item is not None
     assert item.findtext("title") == "cool show 04"
-    assert (
-        int(item.find("enclosure").get("length"))
-        == library.media_path(row).stat().st_size
-    )
+    enclosure = item.find("enclosure")
+    assert enclosure is not None
+    assert int(enclosure.attrib["length"]) == library.media_path(row).stat().st_size
     assert hashlib.sha256(video.read_bytes()).hexdigest() == checksum
     assert not list((config.data_dir / "staging").iterdir())
     bad = source / "bad 08.mkv"

@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 import tomlkit
@@ -66,7 +67,8 @@ def run_mprocs(command: list[str], *, cwd: Path) -> int:
 
     with contextlib.ExitStack() as handles:
         # pywin32 requires a string here, not None. Empty means an unnamed job.
-        job = win32job.CreateJobObject(None, "")
+        # Its stubs incorrectly type handle returns as None/int, not PyHANDLE.
+        job = cast(Any, win32job.CreateJobObject(None, ""))
         handles.callback(job.Close)
         info = win32job.QueryInformationJobObject(
             job, win32job.JobObjectExtendedLimitInformation
@@ -90,8 +92,8 @@ def run_mprocs(command: list[str], *, cwd: Path) -> int:
             str(cwd),
             win32process.STARTUPINFO(),
         )
-        handles.callback(process.Close)
-        handles.callback(thread.Close)
+        handles.callback(cast(Any, process).Close)
+        handles.callback(cast(Any, thread).Close)
         try:
             win32job.AssignProcessToJobObject(job, process)
             win32process.ResumeThread(thread)
@@ -226,7 +228,7 @@ def serve(config: Config) -> int:
     )
     own = json.loads(status.stdout).get("Self", {})
     hostname = own.get("DNSName", "").rstrip(".").lower()
-    if not hostname or hostname != urlsplit(config.base_url).hostname.lower():
+    if not hostname or hostname != urlsplit(config.base_url).hostname:
         raise ValueError(
             "server.base_url must match this machine's Tailscale HTTPS DNS name"
         )
@@ -411,9 +413,11 @@ async def convert(library: Library, episode_id: str) -> None:
 async def worker(config: Config) -> None:
     if os.name != "nt":
         # Let cancellation close the conversion process group before mprocs exits.
+        task = asyncio.current_task()
+        assert task is not None
         asyncio.get_running_loop().add_signal_handler(
             signal.SIGTERM,
-            asyncio.current_task().cancel,
+            task.cancel,
         )
     with library_lock(config):
         library = Library(config)
