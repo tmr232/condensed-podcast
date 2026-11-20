@@ -308,6 +308,28 @@ class Library:
                 "type": "application/rss+xml",
             },
         )
+        if self.config.cover_image is not None:
+            content = self.config.cover_image.read_bytes()
+            name = "cover" + self.config.cover_image.suffix.lower()
+            atomic_write(self.config.public_dir / "media" / name, content)
+            # A new URL lets clients refresh artwork even when its path is unchanged.
+            url = (
+                self.config.media_url(name)
+                + "?v="
+                + hashlib.sha256(content).hexdigest()
+            )
+            ET.SubElement(
+                channel,
+                "{http://www.itunes.com/dtds/podcast-1.0.dtd}image",
+                href=url,
+            )
+            image = ET.SubElement(channel, "image")
+            for key, value in (
+                ("url", url),
+                ("title", self.config.title),
+                ("link", self.config.feed_url),
+            ):
+                ET.SubElement(image, key).text = value
         for row in self.episodes("published"):
             if not self.media_path(row).is_file():
                 log.warning(

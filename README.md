@@ -37,6 +37,7 @@ Edit `config.toml`:
 | `server.base_url` | This PC's exact Tailscale HTTPS origin, used in feed URLs. Keep it stable. |
 | `storage.data_dir` | Local writable data folder, separate from sources. Relative paths resolve beside the config. |
 | `sources.directories` | One directory per show; titles become `directory name 01`, etc. |
+| `feed.cover_image` | Optional local JPEG/PNG path, relative to the config. Copied and served privately with the podcast; a square image is recommended. |
 | `sync` | Credentials for the separate goPodder sync user created below. |
 | `tools` | Executable paths, or omit to use PATH. Explicit invalid paths fail; `ffprobe` must accompany an explicit FFmpeg path. |
 | `episodes.number_patterns` | Ordered global Python `re.match` patterns against the filename stem; capture group 1 is the number. |
@@ -104,6 +105,7 @@ All state lives under `data_dir`; only `public/` is file-served. Don't add arbit
 files/symlinks there. To relocate data: stop everything, move the entire folder,
 update the path and restart with the same base URL. Back up config separately.
 Data/port/tool/URL changes require restarting; other settings reload automatically.
+Cover changes appear on the next scan; AntennaPod may need a feed refresh to show them.
 
 ## Development
 

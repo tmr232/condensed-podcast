@@ -17,7 +17,7 @@ DEFAULT_SHUKU = {
 }
 
 
-def atomic_write(path: Path, text: str) -> None:
+def atomic_write(path: Path, text: str | bytes) -> None:
     """Replace on the same volume, closing handles first for Windows."""
     import tempfile
 
@@ -25,7 +25,10 @@ def atomic_write(path: Path, text: str) -> None:
     name = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=path.parent, delete=False
+            mode="wb" if isinstance(text, bytes) else "w",
+            encoding=None if isinstance(text, bytes) else "utf-8",
+            dir=path.parent,
+            delete=False,
         ) as stream:
             name = Path(stream.name)
             stream.write(text)
@@ -63,6 +66,7 @@ class Config:
     tools: dict
     title: str
     description: str
+    cover_image: Path | None
     username: str
     password: str
     scan_interval: float
@@ -141,7 +145,7 @@ def load_config(path: str | Path) -> Config:
         "server": {"base_url", "caddy_port", "gopodder_port"},
         "storage": {"data_dir"},
         "sources": {"directories"},
-        "feed": {"title", "description"},
+        "feed": {"title", "description", "cover_image"},
         "tools": {"caddy", "ffmpeg", "gopodder", "mprocs", "tailscale"},
         "sync": {"username", "password", "interval_seconds"},
         "scan": {"interval_seconds"},
@@ -234,6 +238,13 @@ def load_config(path: str | Path) -> Config:
         shuku["subtitle_directory"] = str(
             local(shuku["subtitle_directory"], "shuku.subtitle_directory")
         )
+    cover_image = None
+    if "cover_image" in section("feed"):
+        cover_image = local(section("feed")["cover_image"], "feed.cover_image")
+        if cover_image.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+            raise ValueError("feed.cover_image must be a JPEG or PNG file")
+        if not cover_image.is_file():
+            raise ValueError(f"feed.cover_image does not exist: {cover_image}")
     return Config(
         path=path,
         base_url=base,
@@ -246,6 +257,7 @@ def load_config(path: str | Path) -> Config:
         description=text(
             section("feed").get("description", "My condensed shows"), "feed.description"
         ),
+        cover_image=cover_image,
         username=username,
         password=password,
         scan_interval=number(

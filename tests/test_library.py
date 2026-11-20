@@ -204,11 +204,16 @@ def test_converted_history_survives_source_disappearance(
 
 def test_config_paths_ordered_patterns_and_global_settings(config):
     assert config.data_dir == config.path.parent / "state with spaces"
+    assert config.cover_image is None
+    cover = config.path.parent / "my cover.PNG"
+    cover.write_bytes(b"image contents")
     document = tomlkit.parse(config.path.read_text())
     document["episodes"] = {"number_patterns": [r".*part-(\d+)", r".*\b(\d\d)\b"]}
     document["shuku"] = {"padding": 1.25, "subtitle_directory": "subtitles"}
+    document["feed"] = {"cover_image": cover.name}
     config.path.write_text(tomlkit.dumps(document))
     changed = load_config(config.path)
+    assert changed.cover_image == cover
     assert (
         changed.episode_title(changed.sources[0] / "part-123 - 04.mkv")
         == "cool show 123"
@@ -229,6 +234,9 @@ def test_config_paths_ordered_patterns_and_global_settings(config):
         {"episodes": {"number_patterns": [r"\d+"]}},
         {"shows": [{"directory": "show", "shuku": {"padding": 2}}]},
         {"server": {"base_url": "http://test.example.ts.net"}},
+        {"feed": {"cover_image": "missing.png"}},
+        {"feed": {"cover_image": "cover.svg"}},
+        {"feed": {"cover_image": ""}},
     ],
 )
 def test_invalid_config_rejected_before_work(config, extra):
@@ -456,3 +464,40 @@ def test_published_metadata_and_settings_changes_do_not_requeue(
         "length": "11",
         "type": "audio/ogg",
     }
+
+
+@pytest.mark.parametrize("extension", [".png", ".JPEG"])
+def test_feed_cover_is_copied_versioned_and_optional(library, config, extension):
+    itunes_image = "{http://www.itunes.com/dtds/podcast-1.0.dtd}image"
+
+    def channel():
+        return ET.parse(config.public_dir / "feed.xml").find("channel")
+
+    library.write_feed()
+    assert channel().find("image") is None
+    assert channel().find(itunes_image) is None
+    cover = config.path.parent / ("my cover" + extension)
+    # Binary copies must not transcode or change newlines.
+    content = b"\xff\x00\r\nimage bytes"
+    cover.write_bytes(content)
+    library.config = replace(config, cover_image=cover)
+    library.write_feed()
+    url = channel().find(itunes_image).get("href")
+    assert url.startswith(config.media_url("cover" + extension.lower()) + "?v=")
+    assert channel().findtext("image/url") == url
+    assert channel().findtext("image/title") == config.title
+    assert channel().findtext("image/link") == config.feed_url
+    served_copy = config.public_dir / "media" / ("cover" + extension.lower())
+    assert served_copy.read_bytes() == content
+    assert cover.read_bytes() == content
+
+    cover.write_bytes(content + b"updated")
+    library.write_feed()
+    assert channel().find(itunes_image).get("href") != url
+    assert served_copy.read_bytes() == content + b"updated"
+
+    library.config = config
+    library.write_feed()
+    assert channel().find("image") is None
+    assert channel().find(itunes_image) is None
+    assert cover.read_bytes() == content + b"updated"

@@ -20,6 +20,8 @@ directories = [
 [feed]
 title = 'Condensed podcast'
 description = 'My condensed shows'
+# Optional local JPEG/PNG; relative to this config. Served privately with the feed.
+# cover_image = './cover.jpg'
 
 [tools]
 # Optional executable paths. Omit a key to use PATH.
