@@ -1,0 +1,60 @@
+# Starter configuration written by condensed-podcast init.
+
+[server]
+# The stable HTTPS origin your phone reaches over Tailscale (not public internet).
+base_url = 'https://your-pc.your-tailnet.ts.net'
+# Internal loopback ports; never exposed directly to the LAN.
+caddy_port = 8765
+gopodder_port = 8766
+
+[storage]
+# All app-owned data lives here. Keep this outside every source directory.
+# Relative paths are relative to this configuration file, not the current shell.
+data_dir = './data'
+
+[sources]
+directories = [
+    'X:\shows\cool show',
+]
+
+[feed]
+title = 'Condensed podcast'
+description = 'My condensed shows'
+
+[tools]
+# Optional executable paths. Omit a key to use PATH.
+# caddy = 'C:\Tools\Caddy\caddy.exe'
+# ffmpeg = 'C:\Tools\FFmpeg\bin\ffmpeg.exe'
+# gopodder = 'C:\Tools\goPodder\gopodder.exe'
+# mprocs = 'C:\Tools\mprocs\mprocs.exe'
+# tailscale = 'C:\Program Files\Tailscale\tailscale.exe'
+# With an explicit ffmpeg path, ffprobe must be in that same directory.
+
+[sync]
+# Create this sync login in goPodder's web UI during first-time setup.
+username = 'antennapod'
+password = 'replace-with-your-sync-password'
+interval_seconds = 10
+
+[scan]
+interval_seconds = 60
+
+[cleanup]
+recovery_days = 7
+
+[episodes]
+# Global ordered fallbacks; group 1 is the episode number. No per-show overrides.
+# Match against the filename without its final extension; first match wins.
+number_patterns = [
+    '.*[Ss]\d{2}[Ee](\d{2})\b',
+    '.*\b(\d\d)\b',
+]
+
+[shuku]
+audio_languages = ['jpn', 'ja']
+subtitle_languages = ['jpn', 'ja', 'eng', 'en']
+# Other shuku options go here, e.g. padding = 0.5.
+# Dotted option names must be quoted, e.g.:
+# 'condensed_audio.audio_codec' = 'libopus'
+# Output location, output suffix, overwrite behavior, and enabled output types
+# are managed by this app so nothing is written beside your source files.
