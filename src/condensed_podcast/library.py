@@ -71,6 +71,24 @@ class Library:
             sql + " ORDER BY published_at DESC, id", states
         ).fetchall()
 
+    def conversion_queue(self) -> list[sqlite3.Row]:
+        """Pending work in source-directory order, then numeric episode order."""
+
+        def priority(row: sqlite3.Row) -> tuple:
+            show = self.config.source_for(Path(row["source"]))
+            # Titles already contain the number selected by the configured regexes.
+            number = row["title"].rsplit(" ", 1)[-1]
+            return (
+                self.config.sources.index(show)
+                if show is not None
+                else len(self.config.sources),
+                int(number) if number.isdecimal() else float("inf"),
+                row["title"],
+                row["id"],
+            )
+
+        return sorted(self.episodes("pending"), key=priority)
+
     def episode(self, episode_id: str) -> sqlite3.Row:
         row = self.db.execute(
             "SELECT * FROM episodes WHERE id=?", (episode_id,)

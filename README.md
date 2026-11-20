@@ -87,6 +87,8 @@ rediscovered by a scan are discarded, including those in unavailable directories
 returning files are discovered again. Converted history stays independent of
 originals. Overlapping roots use the most-specific show directory. Failed inputs
 retry on input/settings changes or `retry`; published episodes aren't reconverted.
+Conversions follow configured source-directory order, lowest episode number first
+within each show. This does not change feed dates or AntennaPod's sort setting.
 
 ## Cleanup and recovery
 

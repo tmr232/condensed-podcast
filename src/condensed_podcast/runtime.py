@@ -437,7 +437,7 @@ async def worker(config: Config) -> None:
             while True:
                 refresh()
                 library.scan()
-                for row in library.episodes("pending"):
+                for row in library.conversion_queue():
                     refresh()  # Removing a source stops queued work immediately.
                     await convert(library, row["id"])
                 library.write_feed()

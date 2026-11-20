@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import time
@@ -200,6 +201,38 @@ def test_converted_history_survives_source_disappearance(
     Path(published["source"]).unlink()
     library.scan()
     assert library.episode(published["id"])["state"] == state
+
+
+def test_conversion_queue_uses_numeric_order_within_configured_shows(library, config):
+    first = config.sources[0]
+    second = config.path.parent / "another show"
+    library.config = replace(
+        config,
+        sources=(first, second),
+        patterns=(re.compile(r".*part-(\d+)"), re.compile(r".*\b(\d\d)\b")),
+    )
+    for source in (first, second):
+        for number in (10, 2, 100):
+            video_stub(source, f"part-{number} - 99.mkv")
+    library.scan()
+    chronological = sorted(library.episodes(), key=lambda row: row["title"])
+    for timestamp, row in enumerate(chronological, start=1):
+        library.update(row["id"], published_at=timestamp)
+    failed = next(row for row in chronological if row["title"] == "another show 100")
+    library.update(failed["id"], state="failed")
+    before = [dict(row) for row in library.episodes()]
+
+    queue = library.conversion_queue()
+    assert [row["title"] for row in queue] == [
+        "cool show 2",
+        "cool show 10",
+        "cool show 100",
+        "another show 2",
+        "another show 10",
+    ]
+    # General listings/feed publication order and stored dates remain unchanged.
+    assert [dict(row) for row in library.episodes()] == before
+    assert [row["published_at"] for row in library.episodes()] == [6, 5, 4, 3, 2, 1]
 
 
 def test_config_paths_ordered_patterns_and_global_settings(config):
