@@ -14,7 +14,7 @@ import typer
 
 from .config import Config, atomic_write, load_config, path_key
 from .library import Library
-from .runtime import generate, library_lock, serve, worker
+from .runtime import generate, library_lock, run_mprocs, serve, worker
 
 app = typer.Typer(
     help="A private condensed-audio podcast",
@@ -118,7 +118,7 @@ def run_command(ctx: typer.Context) -> None:
     print(f"Generated configuration: {generated}", flush=True)
     print(f"Feed: {config.feed_url}", flush=True)
     raise typer.Exit(
-        subprocess.call(
+        run_mprocs(
             [executable, "--config", str(generated)], cwd=config.data_dir / "logs"
         )
     )

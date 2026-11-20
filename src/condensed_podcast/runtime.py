@@ -21,7 +21,6 @@ from .library import AUDIO_MIME_TYPES, Library
 from .sync import fetch_actions
 
 log = logging.getLogger(__name__)
-_windows_job = None
 
 
 @contextlib.contextmanager
@@ -44,7 +43,7 @@ def library_lock(config: Config):
                 fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as error:
             raise ValueError(
-                "Manager is already running; stop its mprocs pane first"
+                "Manager is already running; stop the mprocs session first"
             ) from error
         try:
             yield
@@ -56,26 +55,54 @@ def library_lock(config: Config):
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
-def guard_windows_children() -> None:
-    """mprocs hard-kills on Windows: close the job to kill shuku/FFmpeg too."""
-    global _windows_job
+def run_mprocs(command: list[str], *, cwd: Path) -> int:
+    """Own the entire Windows session, including descendants orphaned by panes."""
     if os.name != "nt":
-        return
-    import win32api
+        return subprocess.call(command, cwd=cwd)
+    import win32con
+    import win32event
     import win32job
+    import win32process
 
-    job = win32job.CreateJobObject(None, None)
-    info = win32job.QueryInformationJobObject(
-        job, win32job.JobObjectExtendedLimitInformation
-    )
-    info["BasicLimitInformation"]["LimitFlags"] |= (
-        win32job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-    )
-    win32job.SetInformationJobObject(
-        job, win32job.JobObjectExtendedLimitInformation, info
-    )
-    win32job.AssignProcessToJobObject(job, win32api.GetCurrentProcess())
-    _windows_job = job  # Keep the handle alive until process exit, never inherited.
+    with contextlib.ExitStack() as handles:
+        # pywin32 requires a string here, not None. Empty means an unnamed job.
+        job = win32job.CreateJobObject(None, "")
+        handles.callback(job.Close)
+        info = win32job.QueryInformationJobObject(
+            job, win32job.JobObjectExtendedLimitInformation
+        )
+        info["BasicLimitInformation"]["LimitFlags"] |= (
+            win32job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        )
+        win32job.SetInformationJobObject(
+            job, win32job.JobObjectExtendedLimitInformation, info
+        )
+        # Suspend before assignment so no child can escape containment at startup.
+        # Inherit the console, but no handles (especially not the job handle).
+        process, thread, _, _ = win32process.CreateProcess(
+            None,
+            subprocess.list2cmdline(command),
+            None,
+            None,
+            False,
+            win32con.CREATE_SUSPENDED,
+            None,
+            str(cwd),
+            win32process.STARTUPINFO(),
+        )
+        handles.callback(process.Close)
+        handles.callback(thread.Close)
+        try:
+            win32job.AssignProcessToJobObject(job, process)
+            win32process.ResumeThread(thread)
+        except BaseException:
+            # Assignment can fail before the job owns this suspended process.
+            win32process.TerminateProcess(process, 1)
+            raise
+        # A finite wait lets Python handle Ctrl+C and close the job promptly.
+        while win32event.WaitForSingleObject(process, 100) != win32event.WAIT_OBJECT_0:
+            pass
+        return win32process.GetExitCodeProcess(process)
 
 
 def shuku_settings(config: Config, output: Path) -> dict:
@@ -190,7 +217,6 @@ def generate(config: Config) -> Path:
 
 def serve(config: Config) -> int:
     """Refuse to overwrite somebody else's Serve/Funnel configuration."""
-    guard_windows_children()
     executable = config.tool("tailscale")
     status = subprocess.run(
         [executable, "status", "--json"],
@@ -383,7 +409,6 @@ async def convert(library: Library, episode_id: str) -> None:
 
 
 async def worker(config: Config) -> None:
-    guard_windows_children()
     if os.name != "nt":
         # Let cancellation close the conversion process group before mprocs exits.
         asyncio.get_running_loop().add_signal_handler(

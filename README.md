@@ -53,6 +53,9 @@ uv run condensed-podcast run
 This opens mprocs with **Caddy, goPodder, Tailscale Serve and manager**.
 Serve is private/foreground, never Funnel; existing mappings are not overwritten.
 Caddy/goPodder bind to loopback only—don't expose them through the firewall.
+On Windows, the launcher owns a Job Object: exiting mprocs or terminating the
+launcher kills all session descendants, including shuku/FFmpeg. Force-stopping
+just one pane doesn't provide this session-wide cleanup.
 
 1. Open `server.base_url`; create a goPodder **admin** account.
 2. Log in → **gPodder Users** → create the **sync user** matching your config.
@@ -76,7 +79,7 @@ uv run condensed-podcast trash restore EPISODE-ID
 uv run condensed-podcast retry
 ```
 
-Stop the manager pane for `status`, `trash` and `retry`; restart it afterward.
+Stop the whole mprocs session for `status`, `trash` and `retry`; restart afterward.
 Source changes reload automatically. Removing a source leaves published episodes;
 unreachable directories warn and scanning continues. Unconverted entries not
 rediscovered by a scan are discarded, including those in unavailable directories;
